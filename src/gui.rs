@@ -32,15 +32,6 @@ fn build_ui(app: &Application) {
         .margin_end(2)
         .build();
 
-    app.connect_activate(|app| {
-        let window = ApplicationWindow::builder()
-            .application(app)
-            .title("Image Preview")
-            .default_width(800)
-            .default_height(600)
-            .build();
-    });
-
     let container = GtkBox::new(Orientation::Horizontal, 5);
 
     // let image_path = "/home/user/Pictures/Wallpapers/*.png";
@@ -55,25 +46,32 @@ fn build_ui(app: &Application) {
         let path = entry.path();
         println!("processing file: {}", path.to_string_lossy());
 
-        if path.extension().map_or(false, |ext| ext == "png") {
-            let image = Image::from_file(path);
-            image.set_pixel_size(150);
-            container.append(&image);
+        let cache_file = Path::new("/home/user/.cache/LinuxWEGUI/").join(path.file_name().unwrap());
+        if cache_file.exists() {
+            if path.file_name().map_or(false, |name| name == "preview.png") {
+                let image = Image::from_file(
+                    "/home/user/Desktop/LinuxWallpaperEngineGUI/431960/864310972/preview.png",
+                );
+                image.set_pixel_size(150);
+                container.append(&image);
 
-            let dest_path =
-                Path::new("/home/user/.cache/LinuxWEGUI/").join(path.file_name().unwrap());
+                let dest_path =
+                    Path::new("/home/user/.cache/LinuxWEGUI/").join(path.file_name().unwrap());
 
-            if let Some(parent_dir) = dest_path.parent() {
-                fs::create_dir_all(parent_dir).expect("Failed to create parent directory");
+                if let Some(parent_dir) = dest_path.parent() {
+                    fs::create_dir_all(parent_dir).expect("Failed to create parent directory");
+                } else {
+                    fs::copy(path, dest_path).expect("yeet");
+                }
             }
-
-            fs::copy(path, dest_path).expect("yeet");
-
-            // fs::copy(path, dest_path).expect("yeet");
-
-            // fs::copy(path, "/home/user.cache/LinuxWEGUI/").expect("yeet");
         }
     }
+
+    // fs::copy(path, dest_path).expect("yeet");
+
+    // fs::copy(path, dest_path).expect("yeet");
+
+    // fs::copy(path, "/home/user.cache/LinuxWEGUI/").expect("yeet");
 
     let window_weak = window.downgrade();
     button.connect_clicked(move |_| {
