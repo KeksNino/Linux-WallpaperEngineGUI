@@ -61,9 +61,15 @@ fn build_ui(app: &Application) {
             container.append(&image);
 
             let dest_path =
-                Path::new("/home/user.cache/LinuxWEGUI/").join(path.file_name().unwrap());
+                Path::new("/home/user/.cache/LinuxWEGUI/").join(path.file_name().unwrap());
+
+            if let Some(parent_dir) = dest_path.parent() {
+                fs::create_dir_all(parent_dir).expect("Failed to create parent directory");
+            }
 
             fs::copy(path, dest_path).expect("yeet");
+
+            // fs::copy(path, dest_path).expect("yeet");
 
             // fs::copy(path, "/home/user.cache/LinuxWEGUI/").expect("yeet");
         }
