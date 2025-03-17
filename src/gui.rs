@@ -32,40 +32,39 @@ fn build_ui(app: &Application) {
         .margin_end(2)
         .build();
 
-    let container = GtkBox::new(Orientation::Horizontal, 5);
-
-    // let image_path = "/home/user/Pictures/Wallpapers/*.png";
-    // let image = Image::from_file(image_path);
-    // fs::create_dir("/home/user/.cache/LinuxWEGUI");
-    // fs::copy(image_path, "/home/user/.cache/LinuxWEGUI/a32xicnes4k91.png");
+    let main_box = GtkBox::new(Orientation::Horizontal, 5);
 
     // let image_dir = "/media/gamedisk4/SteamLibrary/steamapps/workshop/content/431960/";
     let image_dir = "/home/user/Desktop/LinuxWallpaperEngineGUI";
 
-    for entry in WalkDir::new(image_dir).into_iter().filter_map(Result::ok) {
+    let mut column_box = GtkBox::new(Orientation::Vertical, 5);
+    let mut images_in_column = 0;
+
+    for entry in WalkDir::new(image_dir)
+        .max_depth(3)
+        .into_iter()
+        .filter_map(Result::ok)
+    {
         let path = entry.path();
-        println!("processing file: {}", path.to_string_lossy());
 
-        let cache_file = Path::new("/home/user/.cache/LinuxWEGUI/").join(path.file_name().unwrap());
-        if cache_file.exists() {
-            if path.file_name().map_or(false, |name| name == "preview.png") {
-                let image = Image::from_file(
-                    "/home/user/Desktop/LinuxWallpaperEngineGUI/431960/864310972/preview.png",
-                );
-                image.set_pixel_size(150);
-                container.append(&image);
+        if path.file_name().map_or(false, |name| name == "preview.jpg") {
+            let image = Image::from_file(path);
+            image.set_pixel_size(150);
 
-                let dest_path =
-                    Path::new("/home/user/.cache/LinuxWEGUI/").join(path.file_name().unwrap());
+            column_box.append(&image);
+            images_in_column += 1;
 
-                if let Some(parent_dir) = dest_path.parent() {
-                    fs::create_dir_all(parent_dir).expect("Failed to create parent directory");
-                } else {
-                    fs::copy(path, dest_path).expect("yeet");
-                }
+            if images_in_column == 5 {
+                main_box.append(&column_box);
+                column_box = GtkBox::new(Orientation::Vertical, 5);
+                images_in_column = 0;
             }
         }
     }
+    if images_in_column > 0 {
+        main_box.append(&column_box);
+    }
+    println!("Fertsch\n");
 
     // fs::copy(path, dest_path).expect("yeet");
 
@@ -102,9 +101,10 @@ fn build_ui(app: &Application) {
         }
     });
 
-    // Attach the button to the window and show everything
-    window.set_child(Some(&button));
-    // window.set_child(Some(&image));
-    window.set_child(Some(&container));
+    let wrapper_box = GtkBox::new(Orientation::Vertical, 5);
+    wrapper_box.append(&button);
+    wrapper_box.append(&main_box);
+
+    window.set_child(Some(&wrapper_box));
     window.present();
 }
