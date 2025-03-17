@@ -34,8 +34,8 @@ fn build_ui(app: &Application) {
 
     let main_box = GtkBox::new(Orientation::Horizontal, 5);
 
-    // let image_dir = "/media/gamedisk4/SteamLibrary/steamapps/workshop/content/431960/";
-    let image_dir = "/home/user/Desktop/LinuxWallpaperEngineGUI";
+    let image_dir = "/media/gamedisk4/SteamLibrary/steamapps/workshop/content/431960/";
+    // let image_dir = "/home/user/Desktop/LinuxWallpaperEngineGUI";
 
     let mut column_box = GtkBox::new(Orientation::Vertical, 5);
     let mut images_in_column = 0;
@@ -64,13 +64,6 @@ fn build_ui(app: &Application) {
     if images_in_column > 0 {
         main_box.append(&column_box);
     }
-    println!("Fertsch\n");
-
-    // fs::copy(path, dest_path).expect("yeet");
-
-    // fs::copy(path, dest_path).expect("yeet");
-
-    // fs::copy(path, "/home/user.cache/LinuxWEGUI/").expect("yeet");
 
     let window_weak = window.downgrade();
     button.connect_clicked(move |_| {
