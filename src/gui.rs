@@ -1,44 +1,39 @@
 use gtk::prelude::*;
-use gtk::FileChooserDialog;
 use gtk::{
-    glib, Application, ApplicationWindow, Box as GtkBox, Button, FileChooserAction, Image,
-    Orientation, ResponseType,
+    Application, ApplicationWindow, Box as GtkBox, Button, FileChooserAction, FileChooserDialog,
+    Image, Orientation, PolicyType, ResponseType, ScrolledWindow,
 };
-use std::fs;
-use std::path::Path;
 use walkdir::WalkDir;
 
-const APP_ID: &str = "org.gtk_rs.HelloWorld";
-
-pub fn main() -> glib::ExitCode {
-    let app = Application::builder().application_id(APP_ID).build();
-    app.connect_activate(build_ui);
-    app.run()
-}
+const APP_ID: &str = "org.gtk_rs.Example";
 
 fn build_ui(app: &Application) {
-    // Create a window first
     let window = ApplicationWindow::builder()
         .application(app)
-        .title("Linux WallpaperEngine GUI")
+        .title("Images in Rows of 5")
+        .default_width(800)
+        .default_height(600)
         .build();
 
-    // Create a button
-    let button = Button::builder()
-        .label("Folder")
-        .margin_top(2)
-        .margin_bottom(2)
-        .margin_start(2)
-        .margin_end(2)
+    let wrapper_box = GtkBox::new(Orientation::Vertical, 5);
+    wrapper_box.set_hexpand(true);
+    wrapper_box.set_vexpand(true);
+
+    let button = Button::with_label("Folder");
+    wrapper_box.append(&button);
+
+    let scrolled_window = ScrolledWindow::builder()
+        .hscrollbar_policy(PolicyType::Never)
+        .vscrollbar_policy(PolicyType::Automatic)
         .build();
+    scrolled_window.set_hexpand(true);
+    scrolled_window.set_vexpand(true);
 
-    let main_box = GtkBox::new(Orientation::Horizontal, 5);
+    let all_rows_box = GtkBox::new(Orientation::Vertical, 5);
 
-    let image_dir = "/media/gamedisk4/SteamLibrary/steamapps/workshop/content/431960/";
-    // let image_dir = "/home/user/Desktop/LinuxWallpaperEngineGUI";
-
-    let mut column_box = GtkBox::new(Orientation::Vertical, 5);
-    let mut images_in_column = 0;
+    let image_dir = "/home/user/Desktop/LinuxWallpaperEngineGUI";
+    let mut row_box = GtkBox::new(Orientation::Horizontal, 5);
+    let mut images_in_row = 0;
 
     for entry in WalkDir::new(image_dir)
         .max_depth(3)
@@ -46,28 +41,31 @@ fn build_ui(app: &Application) {
         .filter_map(Result::ok)
     {
         let path = entry.path();
-
         if path.file_name().map_or(false, |name| name == "preview.jpg") {
             let image = Image::from_file(path);
             image.set_pixel_size(150);
 
-            column_box.append(&image);
-            images_in_column += 1;
+            row_box.append(&image);
+            images_in_row += 1;
 
-            if images_in_column == 5 {
-                main_box.append(&column_box);
-                column_box = GtkBox::new(Orientation::Vertical, 5);
-                images_in_column = 0;
+            if images_in_row == 10 {
+                all_rows_box.append(&row_box);
+                row_box = GtkBox::new(Orientation::Horizontal, 5);
+                images_in_row = 0;
             }
         }
     }
-    if images_in_column > 0 {
-        main_box.append(&column_box);
+
+    if images_in_row > 0 {
+        all_rows_box.append(&row_box);
     }
+
+    scrolled_window.set_child(Some(&all_rows_box));
+
+    wrapper_box.append(&scrolled_window);
 
     let window_weak = window.downgrade();
     button.connect_clicked(move |_| {
-        // Get a strong reference back from the weak window
         if let Some(window) = window_weak.upgrade() {
             let dialog = FileChooserDialog::new(
                 Some("Select Workshop Folder"),
@@ -78,8 +76,6 @@ fn build_ui(app: &Application) {
                     ("Open", ResponseType::Accept),
                 ],
             );
-
-            // Use a response callback rather than dialog.run()
             dialog.connect_response(move |dialog, response| {
                 if response == ResponseType::Accept {
                     if let Some(file_path) = dialog.file().and_then(|f| f.path()) {
@@ -88,16 +84,16 @@ fn build_ui(app: &Application) {
                 }
                 dialog.close();
             });
-
-            // Present the dialog (non-blocking)
             dialog.present();
         }
     });
 
-    let wrapper_box = GtkBox::new(Orientation::Vertical, 5);
-    wrapper_box.append(&button);
-    wrapper_box.append(&main_box);
-
     window.set_child(Some(&wrapper_box));
     window.present();
+}
+
+pub fn main() -> gtk::glib::ExitCode {
+    let app = Application::builder().application_id(APP_ID).build();
+    app.connect_activate(build_ui);
+    app.run()
 }
