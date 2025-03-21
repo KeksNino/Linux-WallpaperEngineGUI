@@ -6,7 +6,7 @@ use gtk::{
 use std::process::Command;
 use walkdir::WalkDir;
 
-const APP_ID: &str = "sieg_heil";
+const APP_ID: &str = "LinuxWEGUI";
 
 fn build_ui(app: &Application) {
     let window = ApplicationWindow::builder()
