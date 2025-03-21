@@ -4,8 +4,6 @@ use gtk::{
     Image, Orientation, PolicyType, ResponseType, ScrolledWindow,
 };
 use std::process::Command;
-use std::{process::{Command, Child}, thread};
-use std::sync::{Arc, Mutex};
 use walkdir::WalkDir;
 
 const APP_ID: &str = "org.gtk_rs.Example";
@@ -43,12 +41,28 @@ fn build_ui(app: &Application) {
         .into_iter()
         .filter_map(Result::ok)
     {
-        let path = entry.path();
+        let path = entry.path().to_path_buf();
         if path.file_name().map_or(false, |name| name == "preview.jpg") {
-            let image = Image::from_file(path);
+            let image = Image::from_file(&path);
             image.set_pixel_size(150);
 
-            row_box.append(&image);
+            let button = Button::builder().child(&image).build();
+            let path_clone = path.clone();
+
+            button.connect_clicked(move |_| {
+                let command_path = path_clone.to_string_lossy().replace("/preview.jpg", "");
+                let command = Command::new("linux-wallpaperengine")
+                    .arg("--use-angle=GL")
+                    .arg("--screen-root=DP-2")
+                    .arg("--screen-root=DP-1")
+                    .arg("--screen-root=HDMI-A-1")
+                    .arg("--silent")
+                    .arg(command_path)
+                    .output()
+                    .expect("failed to execute process");
+            });
+
+            row_box.append(&button);
             images_in_row += 1;
 
             if images_in_row == 10 {
@@ -92,6 +106,7 @@ fn build_ui(app: &Application) {
     });
 
     window.set_child(Some(&wrapper_box));
+    window.set_child(Some(&button));
     window.present();
 }
 
