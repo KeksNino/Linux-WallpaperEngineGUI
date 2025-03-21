@@ -3,6 +3,9 @@ use gtk::{
     Application, ApplicationWindow, Box as GtkBox, Button, FileChooserAction, FileChooserDialog,
     Image, Orientation, PolicyType, ResponseType, ScrolledWindow,
 };
+use std::process::Command;
+use std::{process::{Command, Child}, thread};
+use std::sync::{Arc, Mutex};
 use walkdir::WalkDir;
 
 const APP_ID: &str = "org.gtk_rs.Example";
