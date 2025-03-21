@@ -3,15 +3,18 @@ use gtk::{
     Application, ApplicationWindow, Box as GtkBox, Button, FileChooserAction, FileChooserDialog,
     Image, Orientation, PolicyType, ResponseType, ScrolledWindow,
 };
+use std::cell::RefCell;
+use std::path::PathBuf;
 use std::process::Command;
+use std::rc::Rc;
 use walkdir::WalkDir;
 
-const APP_ID: &str = "org.gtk_rs.Example";
+const APP_ID: &str = "sieg_heil";
 
 fn build_ui(app: &Application) {
     let window = ApplicationWindow::builder()
         .application(app)
-        .title("Images in Rows of 5")
+        .title("Linux Wallpaper Engine GUI")
         .default_width(800)
         .default_height(600)
         .build();
@@ -20,8 +23,34 @@ fn build_ui(app: &Application) {
     wrapper_box.set_hexpand(true);
     wrapper_box.set_vexpand(true);
 
+    // FILE CHOOSER BUTTON AND DIALOG
     let button = Button::with_label("Folder");
     wrapper_box.append(&button);
+
+    let window_weak = window.downgrade();
+    button.connect_clicked(move |_| {
+        if let Some(window) = window_weak.upgrade() {
+            let dialog = FileChooserDialog::new(
+                Some("Select Workshop Folder"),
+                Some(&window),
+                FileChooserAction::Open,
+                &[
+                    ("Cancel", ResponseType::Cancel),
+                    ("Open", ResponseType::Accept),
+                ],
+            );
+
+            dialog.connect_response(move |dialog, response| {
+                if response == ResponseType::Accept {
+                    if let Some(file_path) = dialog.file().and_then(|f| f.path()) {
+                        println!("Selected file: {}", file_path.display());
+                    }
+                }
+                dialog.close();
+            });
+            dialog.present();
+        }
+    });
 
     let scrolled_window = ScrolledWindow::builder()
         .hscrollbar_policy(PolicyType::Never)
@@ -32,7 +61,8 @@ fn build_ui(app: &Application) {
 
     let all_rows_box = GtkBox::new(Orientation::Vertical, 5);
 
-    let image_dir = "/home/user/Desktop/LinuxWallpaperEngineGUI";
+    let image_dir = file_path;
+    // let image_dir = "/home/user/Desktop/LinuxWallpaper431960/";
     let mut row_box = GtkBox::new(Orientation::Horizontal, 5);
     let mut images_in_row = 0;
 
@@ -51,7 +81,7 @@ fn build_ui(app: &Application) {
 
             button.connect_clicked(move |_| {
                 let command_path = path_clone.to_string_lossy().replace("/preview.jpg", "");
-                let command = Command::new("linux-wallpaperengine")
+                Command::new("linux-wallpaperengine")
                     .arg("--use-angle=GL")
                     .arg("--screen-root=DP-2")
                     .arg("--screen-root=DP-1")
@@ -80,30 +110,6 @@ fn build_ui(app: &Application) {
     scrolled_window.set_child(Some(&all_rows_box));
 
     wrapper_box.append(&scrolled_window);
-
-    let window_weak = window.downgrade();
-    button.connect_clicked(move |_| {
-        if let Some(window) = window_weak.upgrade() {
-            let dialog = FileChooserDialog::new(
-                Some("Select Workshop Folder"),
-                Some(&window),
-                FileChooserAction::Open,
-                &[
-                    ("Cancel", ResponseType::Cancel),
-                    ("Open", ResponseType::Accept),
-                ],
-            );
-            dialog.connect_response(move |dialog, response| {
-                if response == ResponseType::Accept {
-                    if let Some(file_path) = dialog.file().and_then(|f| f.path()) {
-                        println!("Selected file: {}", file_path.display());
-                    }
-                }
-                dialog.close();
-            });
-            dialog.present();
-        }
-    });
 
     window.set_child(Some(&wrapper_box));
     window.set_child(Some(&button));
