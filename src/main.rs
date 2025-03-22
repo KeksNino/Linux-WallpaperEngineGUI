@@ -3,12 +3,22 @@ use gtk::{
     Application, ApplicationWindow, Box as GtkBox, Button, FileChooserAction, FileChooserDialog,
     Image, Orientation, PolicyType, ResponseType, ScrolledWindow,
 };
-use std::process::Command;
+use std::path::PathBuf;
+use std::process::{Child, Command};
+use std::sync::{Arc, Mutex};
 use walkdir::WalkDir;
 
 const APP_ID: &str = "LinuxWEGUI";
 
+struct AppState {
+    current_process: Option<Child>,
+}
+
 fn build_ui(app: &Application) {
+    let app_state = Arc::new(Mutex::new(AppState {
+        current_process: None,
+    }));
+
     let window = ApplicationWindow::builder()
         .application(app)
         .title("Linux Wallpaper Engine GUI")
@@ -16,31 +26,58 @@ fn build_ui(app: &Application) {
         .default_height(600)
         .build();
 
+    let app_state_clone = app_state.clone();
+    window.connect_close_request(move |_| {
+        let mut state = app_state_clone.lock().unwrap();
+        if let Some(mut child) = state.current_process.take() {
+            println!("Terminating wallpaper engine process");
+            let _ = child.kill();
+        }
+        false.into()
+    });
+
     let wrapper_box = GtkBox::new(Orientation::Vertical, 5);
     wrapper_box.set_hexpand(true);
     wrapper_box.set_vexpand(true);
 
-    // FILE CHOOSER BUTTON AND DIALOG
-    let button = Button::with_label("Folder");
+    // FILE CHOOSER BUTTON
+    let button = Button::with_label("Select Workshop Folder");
     wrapper_box.append(&button);
 
+    // SCROLLED WINDOW FOR IMAGES
+    let scrolled_window = ScrolledWindow::builder()
+        .hscrollbar_policy(PolicyType::Never)
+        .vscrollbar_policy(PolicyType::Automatic)
+        .build();
+    scrolled_window.set_hexpand(true);
+    scrolled_window.set_vexpand(true);
+    wrapper_box.append(&scrolled_window);
+
+    // Connect click event to button
     let window_weak = window.downgrade();
+    let scrolled_window_clone = scrolled_window.clone();
+    let app_state_clone = app_state.clone();
+
     button.connect_clicked(move |_| {
         if let Some(window) = window_weak.upgrade() {
             let dialog = FileChooserDialog::new(
                 Some("Select Workshop Folder"),
                 Some(&window),
-                FileChooserAction::Open,
+                FileChooserAction::SelectFolder,
                 &[
                     ("Cancel", ResponseType::Cancel),
                     ("Open", ResponseType::Accept),
                 ],
             );
 
+            let scrolled_window = scrolled_window_clone.clone();
+            let app_state = app_state_clone.clone();
+
             dialog.connect_response(move |dialog, response| {
                 if response == ResponseType::Accept {
                     if let Some(file_path) = dialog.file().and_then(|f| f.path()) {
-                        println!("Selected file: {}", file_path.display());
+                        println!("Selected folder: {}", file_path.display());
+                        load_images(&file_path, &scrolled_window, app_state.clone());
                     }
                 }
                 dialog.close();
@@ -49,18 +86,16 @@ fn build_ui(app: &Application) {
         }
     });
 
-    let scrolled_window = ScrolledWindow::builder()
-        .hscrollbar_policy(PolicyType::Never)
-        .vscrollbar_policy(PolicyType::Automatic)
-        .build();
-    scrolled_window.set_hexpand(true);
-    scrolled_window.set_vexpand(true);
+    window.set_child(Some(&wrapper_box));
+    window.present();
+}
 
+fn load_images(
+    image_dir: &PathBuf,
+    scrolled_window: &ScrolledWindow,
+    app_state: Arc<Mutex<AppState>>,
+) {
     let all_rows_box = GtkBox::new(Orientation::Vertical, 5);
-
-    // IMAGES
-    // let image_dir = file_path;
-    let image_dir = "/home/user/Desktop/LinuxWallpaperEngineGUI/431960/";
     let mut row_box = GtkBox::new(Orientation::Horizontal, 5);
     let mut images_in_row = 0;
 
@@ -76,18 +111,35 @@ fn build_ui(app: &Application) {
 
             let button = Button::builder().child(&image).build();
             let path_clone = path.clone();
+            let app_state_clone = app_state.clone();
 
             button.connect_clicked(move |_| {
                 let command_path = path_clone.to_string_lossy().replace("/preview.jpg", "");
-                Command::new("linux-wallpaperengine")
+
+                // First terminate any existing process
+                let mut state = app_state_clone.lock().unwrap();
+                if let Some(mut child) = state.current_process.take() {
+                    println!("Terminating previous wallpaper process");
+                    let _ = child.kill();
+                }
+
+                // Launch the command as a child process
+                let child = Command::new("linux-wallpaperengine")
                     .arg("--use-angle=GL")
                     .arg("--screen-root=DP-2")
                     .arg("--screen-root=DP-1")
                     .arg("--screen-root=HDMI-A-1")
                     .arg("--silent")
-                    .arg(command_path)
-                    .output()
-                    .expect("failed to execute process");
+                    .arg(&command_path)
+                    .spawn();
+
+                match child {
+                    Ok(child_process) => {
+                        println!("Started wallpaper engine with: {}", command_path);
+                        state.current_process = Some(child_process);
+                    }
+                    Err(e) => println!("Failed to start wallpaper engine: {}", e),
+                }
             });
 
             row_box.append(&button);
@@ -106,12 +158,6 @@ fn build_ui(app: &Application) {
     }
 
     scrolled_window.set_child(Some(&all_rows_box));
-
-    wrapper_box.append(&scrolled_window);
-
-    window.set_child(Some(&wrapper_box));
-    window.set_child(Some(&button));
-    window.present();
 }
 
 pub fn main() -> gtk::glib::ExitCode {
