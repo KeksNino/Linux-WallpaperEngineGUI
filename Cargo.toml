@@ -4,5 +4,5 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-gtk = { version = "0.9.6", package = "gtk4", features = ["v4_16"] }
+gtk = { version = "0.10.0", package = "gtk4", features = ["v4_16"] }
 walkdir = "2"
