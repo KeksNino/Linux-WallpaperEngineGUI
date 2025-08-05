@@ -54,9 +54,20 @@ fn build_ui(app: &Application) {
     wrapper_box.set_hexpand(true);
     wrapper_box.set_vexpand(true);
 
+    // Kill Process Button
+    let button2 = Button::with_label("Kill Wallpaper Engine Process");
+
     // FILE CHOOSER BUTTON
     let button = Button::with_label("Select Workshop Folder");
     wrapper_box.append(&button);
+    wrapper_box.append(&button2);
+
+    button2.connect_clicked(|_| {
+        let killcommand = Command::new("/usr/bin/pkill")
+            .arg("-9")
+            .arg("linux-wallpaper")
+            .spawn();
+    });
 
     // SCROLLED WINDOW FOR IMAGES
     let scrolled_window = ScrolledWindow::builder()
@@ -146,7 +157,9 @@ fn load_images(
         .filter_map(Result::ok)
     {
         let path = entry.path().to_path_buf();
-        if path.file_name().is_some_and(|name| name == "preview.jpg") {
+        if path.file_name().is_some_and(|name| {
+            name == "preview.jpg" || name == "preview.gif" || name == "preview.png"
+        }) {
             let image = Image::from_file(&path);
             image.set_pixel_size(150);
 
@@ -155,13 +168,17 @@ fn load_images(
             let app_state_clone = app_state.clone();
 
             button.connect_clicked(move |_| {
-                let command_path = path_clone.to_string_lossy().replace("/preview.jpg", "");
+                let command_path = path_clone
+                    .to_string_lossy()
+                    .replace("/preview.jpg", "")
+                    .replace("/preview.gif", "")
+                    .replace("/preview.png", "");
                 let mut state = app_state_clone.lock().unwrap();
                 if let Some(mut child) = state.current_process.take() {
                     println!("Terminating previous wallpaper process");
                     let _ = child.kill();
                 }
-                let child = Command::new("linux-wallpaperengine")
+                let command = Command::new("linux-wallpaperengine")
                     .arg("--use-angle=GL")
                     .arg("--screen-root=DP-2")
                     .arg("--screen-root=DP-1")
@@ -169,8 +186,7 @@ fn load_images(
                     .arg("--silent")
                     .arg(&command_path)
                     .spawn();
-                //let status = child.wait().expect("Failed to wait on child process");
-                match child {
+                match command {
                     Ok(child_process) => {
                         println!("Started wallpaper engine with: {}", command_path);
                         state.current_process = Some(child_process);
